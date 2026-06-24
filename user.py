@@ -1,38 +1,41 @@
 """
-Virtual Chemistry Lab API - User Model
+Virtual Chemistry Lab API - User Schemas
+Pydantic models for user management.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, BigInteger
-from sqlalchemy.sql import func
-from app.db.base import Base
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel, Field, EmailStr
 
 
-class User(Base):
-    """User model for API authentication and usage tracking."""
+class UserCreate(BaseModel):
+    """Schema for creating a new user."""
+    email: EmailStr
+    name: Optional[str] = None
+    api_key: Optional[str] = None
 
-    __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    api_key = Column(String(255), unique=True, index=True, nullable=False)
-    name = Column(String(255), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
-    usage_count = Column(BigInteger, default=0, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+class UserResponse(BaseModel):
+    """Schema for user response."""
+    id: int
+    email: str
+    name: Optional[str] = None
+    is_active: bool
+    is_admin: bool
+    usage_count: int
+    created_at: Optional[datetime] = None
 
-    def __repr__(self):
-        return f"<User(id={self.id}, email={self.email}, active={self.is_active})>"
+    model_config = {"from_attributes": True}
 
-    def to_dict(self):
-        """Convert user to dictionary."""
-        return {
-            "id": self.id,
-            "email": self.email,
-            "name": self.name,
-            "is_active": self.is_active,
-            "is_admin": self.is_admin,
-            "usage_count": self.usage_count,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
+
+class UserUpdate(BaseModel):
+    """Schema for updating user."""
+    name: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class APIKeyResponse(BaseModel):
+    """Schema for API key response."""
+    api_key: str
+    created_at: datetime
+    message: str = "Keep this key secure. It cannot be retrieved again."

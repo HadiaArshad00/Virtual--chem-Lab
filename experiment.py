@@ -1,63 +1,72 @@
 """
-Virtual Chemistry Lab API - Experiment Model
+Virtual Chemistry Lab API - Experiment Schemas
+Pydantic models for experiment requests and responses.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text, Float
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.db.base import Base
+from typing import Optional, Dict, Any, List
+from datetime import datetime
+from pydantic import BaseModel, Field
 
 
-class Experiment(Base):
-    """Experiment model for tracking calculations and simulations."""
+class ExperimentCreate(BaseModel):
+    """Schema for creating a new experiment."""
+    type: str = Field(..., description="Type of calculation (e.g., dft, kinetics, spectra)")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="Calculation parameters")
+    parent_id: Optional[int] = Field(None, description="Parent experiment ID for forking")
 
-    __tablename__ = "experiments"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    type = Column(String(100), nullable=False, index=True)
-    status = Column(String(50), default="pending", nullable=False, index=True)
-
-    # Input parameters
-    parameters = Column(JSON, default=dict, nullable=False)
-
-    # Results
-    results = Column(JSON, default=dict, nullable=True)
-    error_message = Column(Text, nullable=True)
-
-    # Timing
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Metadata
-    version = Column(String(20), default="1.0.0", nullable=False)
-    parent_id = Column(Integer, ForeignKey("experiments.id"), nullable=True)
-    engine_used = Column(String(100), nullable=True)
-    calculation_time = Column(Float, nullable=True)
-
-    # Relationships
-    user = relationship("User", back_populates="experiments")
-    parent = relationship("Experiment", remote_side=[id], backref="children")
-
-    def __repr__(self):
-        return f"<Experiment(id={self.id}, type={self.type}, status={self.status})>"
-
-    def to_dict(self):
-        """Convert experiment to dictionary."""
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "type": self.type,
-            "status": self.status,
-            "parameters": self.parameters,
-            "results": self.results,
-            "error_message": self.error_message,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "version": self.version,
-            "parent_id": self.parent_id,
-            "engine_used": self.engine_used,
-            "calculation_time": self.calculation_time,
+    model_config = {"json_schema_extra": {
+        "example": {
+            "type": "dft",
+            "parameters": {
+                "smiles": "CCO",
+                "method": "geometry_optimization",
+                "functional": "PBE0",
+                "basis_set": "def2-SVP",
+            },
         }
+    }}
+
+
+class ExperimentResponse(BaseModel):
+    """Schema for experiment response."""
+    id: int
+    user_id: int
+    type: str
+    status: str
+    parameters: Dict[str, Any]
+    results: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    created_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    version: str
+    parent_id: Optional[int] = None
+    engine_used: Optional[str] = None
+    calculation_time: Optional[float] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ExperimentStatus(BaseModel):
+    """Schema for experiment status."""
+    id: int
+    status: str
+    progress: Optional[float] = Field(None, description="Progress percentage (0-100)")
+    message: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ExperimentList(BaseModel):
+    """Schema for list of experiments."""
+    total: int
+    experiments: List[ExperimentResponse]
+    page: int = 1
+    per_page: int = 20
+
+
+class ExperimentFork(BaseModel):
+    """Schema for forking an experiment."""
+    new_parameters: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Override parameters")
