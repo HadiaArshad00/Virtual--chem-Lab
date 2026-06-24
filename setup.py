@@ -1,0 +1,55 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="virtual-chem-lab",
+    version="1.0.0",
+    description="Production-ready Virtual Chemistry Lab API",
+    author="Your Name",
+    author_email="your.email@example.com",
+    packages=find_packages(),
+    python_requires=">=3.11",
+    install_requires=[
+        "fastapi>=0.115.0",
+        "uvicorn[standard]>=0.32.0",
+        "sqlalchemy[asyncio]>=2.0.36",
+        "asyncpg>=0.30.0",
+        "celery>=5.4.0",
+        "redis>=5.2.0",
+        "pydantic>=2.9.2",
+        "pydantic-settings>=2.6.1",
+        "loguru>=0.7.2",
+        "prometheus-client>=0.21.0",
+        "slowapi>=0.1.9",
+        "numpy>=1.26.0",
+        "scipy>=1.14.0",
+        "scikit-learn>=1.5.0",
+        "rdkit>=2024.3.5",
+    ],
+    extras_require={
+        "dev": [
+            "pytest>=8.3.0",
+            "pytest-asyncio>=0.24.0",
+            "httpx>=0.27.0",
+            "black>=24.10.0",
+            "isort>=5.13.0",
+            "flake8>=7.1.0",
+            "mypy>=1.13.0",
+        ],
+        "ml": [
+            "xgboost>=2.1.0",
+        ],
+        "docs": [
+            "mkdocs>=1.6.0",
+            "mkdocs-material>=9.5.0",
+        ],
+    },
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Scientific/Engineering :: Chemistry",
+    ],
+    license="MIT",
+)
