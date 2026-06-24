@@ -1,0 +1,128 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: chem_lab_postgres
+    environment:
+      POSTGRES_DB: chem_lab
+      POSTGRES_USER: chem_user
+      POSTGRES_PASSWORD: chem_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chem_user -d chem_lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chem_lab_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: chem_lab_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chem_lab_network
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: chem_lab_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chem_user:chem_pass@postgres:5432/chem_lab
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-100}
+      DEFAULT_ENGINE: ${DEFAULT_ENGINE:-rdkit}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ../app:/app
+      - ../scripts:/scripts
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - chem_lab_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    container_name: chem_lab_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chem_user:chem_pass@postgres:5432/chem_lab
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      DEFAULT_ENGINE: ${DEFAULT_ENGINE:-rdkit}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ../app:/app
+      - ../scripts:/scripts
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    networks:
+      - chem_lab_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: chem_lab_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - chem_lab_network
+
+  flower:
+    image: mher/flower:latest
+    container_name: chem_lab_flower
+    ports:
+      - "5555:5555"
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - chem_lab_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  chem_lab_network:
+    driver: bridge
