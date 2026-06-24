@@ -1,105 +1,28 @@
 """
-Virtual Chemistry Lab API - Abstract Base Engine
-Defines the interface for all calculation engines.
+Virtual Chemistry Lab API - Database Base
+SQLAlchemy declarative base and common model mixins.
 """
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+from sqlalchemy import Column, Integer, DateTime, String
+from sqlalchemy.orm import DeclarativeBase, declared_attr
+from sqlalchemy.sql import func
 
 
-@dataclass
-class CalculationResult:
-    """Standard result container for all calculations."""
-    success: bool
-    data: Dict[str, Any]
-    engine_used: str
-    calculation_time: float
-    warnings: List[str]
-    citations: List[Dict[str, Any]]
-    error_message: Optional[str] = None
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+    pass
 
 
-class AbstractEngine(ABC):
-    """Abstract base class for all calculation engines.
+class TimestampMixin:
+    """Mixin that adds created_at and updated_at timestamps."""
 
-    All engines must implement these methods to ensure consistent
-    behavior across the API.
-    """
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    def __init__(self, name: str, version: str = "1.0.0"):
-        self.name = name
-        self.version = version
-        self._available = True
 
-    @property
-    def is_available(self) -> bool:
-        """Check if the engine is available for use."""
-        return self._available
+class IDMixin:
+    """Mixin that adds an auto-incrementing primary key."""
 
-    @abstractmethod
-    async def calculate(self, parameters: Dict[str, Any]) -> CalculationResult:
-        """Execute a calculation with the given parameters.
-
-        Args:
-            parameters: Dictionary containing calculation parameters.
-
-        Returns:
-            CalculationResult with results or error information.
-        """
-        pass
-
-    @abstractmethod
-    async def validate_input(self, parameters: Dict[str, Any]) -> tuple[bool, str]:
-        """Validate input parameters before calculation.
-
-        Args:
-            parameters: Dictionary containing calculation parameters.
-
-        Returns:
-            Tuple of (is_valid, error_message).
-        """
-        pass
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the capabilities of this engine.
-
-        Returns:
-            Dictionary describing what this engine can do.
-        """
-        return {
-            "name": self.name,
-            "version": self.version,
-            "available": self.is_available,
-            "methods": self._get_supported_methods(),
-        }
-
-    @abstractmethod
-    def _get_supported_methods(self) -> List[str]:
-        """Get list of supported calculation methods.
-
-        Returns:
-            List of method names supported by this engine.
-        """
-        pass
-
-    def get_citations(self) -> List[Dict[str, Any]]:
-        """Get academic citations for this engine.
-
-        Returns:
-            List of citation dictionaries.
-        """
-        from app.core.utils.citations import CitationManager
-        return CitationManager.get_citations(self.name)
-
-    async def health_check(self) -> Dict[str, Any]:
-        """Perform a health check on the engine.
-
-        Returns:
-            Dictionary with health status information.
-        """
-        return {
-            "engine": self.name,
-            "available": self.is_available,
-            "version": self.version,
-        }
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
